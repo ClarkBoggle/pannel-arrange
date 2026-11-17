@@ -154,7 +154,8 @@ Item {
         }
     }
 
-    function apply(plasmoidItem: Item, offset: var): void {
+    // (knownPopup: the popup window when already known, see watch())
+    function apply(plasmoidItem: Item, offset: var, knownPopup: var): void {
         const id = plasmoidItem.Plasmoid.id;
         let anchor = anchorItems[id];
 
@@ -173,7 +174,7 @@ Item {
 
         // The popup is often created only at the first opening: applied then
         watch(plasmoidItem);
-        const popup = popupOf(plasmoidItem);
+        const popup = knownPopup ?? popupOf(plasmoidItem);
         const content = placement.Window.contentItem;
         if (!popup || !content) {
             return;
@@ -219,14 +220,16 @@ Item {
             const content = plasmoidItem.fullRepresentationItem;
             if (content && !watchedItems.includes(content)) {
                 watchedItems.push(content);
-                content.windowChanged.connect(() => {
-                    const popup = placement.popupOf(plasmoidItem);
-                    if (popup) {
-                        placement.keepSize(popup);
+                // (the window given by the signal: the attached Window
+                // property of the item is not updated yet at that time)
+                content.windowChanged.connect(window => {
+                    if (window?.objectName !== "popupWindow") {
+                        return;
                     }
+                    placement.keepSize(window);
                     const offset = placement.offsetOf(plasmoidItem);
                     if (offset !== undefined) {
-                        placement.apply(plasmoidItem, offset);
+                        placement.apply(plasmoidItem, offset, window);
                     }
                 });
             }
