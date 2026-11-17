@@ -15,7 +15,9 @@ import org.kde.plasma.plasmoid
 // there itself. Its position is the one of its start (left or top edge) from
 // the start of the panel window, saved by applet id in PopupOffsets.
 //
-// Moving a popup is done by PopupHandles (edit mode), through setOffset().
+// The anchor is set when the popup gets the full representation (often at its
+// first opening). Moving a popup is done by PopupHandles (edit mode), through
+// setOffset().
 Item {
     id: placement
 
@@ -154,13 +156,8 @@ Item {
             return;
         }
 
-        // The popup must exist to get its anchor before it opens: its content is
-        // created without opening it
-        if (!plasmoidItem.fullRepresentationItem && plasmoidItem.fullRepresentation) {
-            const preload = plasmoidItem.preloadFullRepresentation;
-            plasmoidItem.preloadFullRepresentation = true;
-            plasmoidItem.preloadFullRepresentation = preload;
-        }
+        // The popup is often created only at the first opening: applied then
+        watch(plasmoidItem);
         const popup = popupOf(plasmoidItem);
         const content = placement.Window.contentItem;
         if (!popup || !content) {
@@ -186,6 +183,35 @@ Item {
         }
         anchor.offset = offset;
         placeAgain(popup, anchor);
+    }
+
+    // Widgets and full representations already watched
+    property var watchedItems: []
+
+    // At its first opening, Plasma creates the full representation of a widget
+    // and puts it in the popup, and only then shows the popup: the position is
+    // applied when the full representation gets its window, before the popup
+    // is placed
+    function watch(plasmoidItem: Item): void {
+        watchedItems = watchedItems.filter(item => item); // (destroyed: null)
+        if (watchedItems.includes(plasmoidItem)) {
+            return;
+        }
+        watchedItems.push(plasmoidItem);
+        const watchContent = () => {
+            const content = plasmoidItem.fullRepresentationItem;
+            if (content && !watchedItems.includes(content)) {
+                watchedItems.push(content);
+                content.windowChanged.connect(() => {
+                    const offset = placement.offsetOf(plasmoidItem);
+                    if (offset !== undefined) {
+                        placement.apply(plasmoidItem, offset);
+                    }
+                });
+            }
+        };
+        plasmoidItem.fullRepresentationItemChanged.connect(watchContent);
+        watchContent();
     }
 
     // Placed again by Plasma on the anchor (it does when its visual parent
