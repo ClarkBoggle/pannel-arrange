@@ -4,12 +4,12 @@
 
 import QtQuick
 
-// Popup resizing, in edit mode:
+// Popup resizing, in panel edit mode (created with ConfigOverlay, which only
+// exists in edit mode):
 //
-// - A click on a widget shown as an icon in the panel opens its popup, instead
-//   of the panel configuration (main.qml), or, while it is open, instead of the
-//   menu of ConfigOverlay (which still shows when the mouse is over the widget,
-//   but not while the popup is open). A second click closes it.
+// - A click on a widget shown as an icon in the panel opens its popup (instead
+//   of the menu of ConfigOverlay, which still shows when the mouse is over the
+//   widget, but not while the popup is open). A second click closes it.
 // - The popup gets resize handles (PopupHandles.qml); its size snaps to the
 //   plasmoid grid of plasma-arrange: the grid of the desktop shown on the
 //   screen of the popup. Without plasma-arrange, the size is free.
@@ -44,16 +44,9 @@ QtObject {
         }
     }
 
-    // Edit mode
-    property bool active: false
-
-    onActiveChanged: {
+    Component.onDestruction: {
         // Edit mode ended: the popup stays open, without handles
-        if (!active) {
-            handles?.destroy();
-            handles = null;
-            applet = null;
-        }
+        handles?.destroy();
     }
 
     // Opens or closes the popup of the widget of an applet container of the
@@ -61,7 +54,7 @@ QtObject {
     // panel): ConfigOverlay then shows its menu.
     function toggle(container: Item): bool {
         const plasmoidItem = container?.applet;
-        if (!active || !plasmoidItem?.fullRepresentation || !plasmoidItem.compactRepresentationItem?.visible) {
+        if (!plasmoidItem?.fullRepresentation || !plasmoidItem.compactRepresentationItem?.visible) {
             return false;
         }
 
