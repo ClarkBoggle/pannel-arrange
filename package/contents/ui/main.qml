@@ -143,12 +143,19 @@ ContainmentItem {
             "rootWidth": Qt.binding(() => root.width),
             "reverse": Qt.binding(() => root.reverse),
             "lastSpacer": lastSpacer,
-            "addWidgetsButton": addWidgetsButton
+            "addWidgetsButton": addWidgetsButton,
+            "popupResize": popupResize // Popup resizing
         });
         component.destroy();
     }
 
 //END connections
+
+    // Popup resizing: in edit mode, a click on a widget opens its popup, resizable
+    // on the grid
+    PopupResize {
+        id: popupResize
+        active: Containment.corona.editMode    }
 
     TapHandler {
         acceptedButtons: Qt.LeftButton
@@ -448,7 +455,14 @@ ContainmentItem {
         anchors.fill: parent
         visible: Containment.corona.editMode && !Plasmoid.userConfiguring
         hoverEnabled: true
-        onClicked: Plasmoid.internalAction("configure").trigger()
+        // Popup resizing: a click on a widget with a popup opens it, without the
+        // panel configuration
+        onClicked: mouse => {
+            const position = mapToItem(currentLayout, mouse.x, mouse.y);
+            if (!popupResize.toggle(currentLayout.childAt(position.x, position.y))) {
+                Plasmoid.internalAction("configure").trigger();
+            }
+        }
         Rectangle {
             anchors.fill: parent
             color: Kirigami.Theme.highlightColor
