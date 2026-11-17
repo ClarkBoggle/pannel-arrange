@@ -238,4 +238,5 @@ biological eyes, approved by my dog 🐾
 ## License
 
 GPL version 2 or later, the license of Plasma's panel containment, from which
-the package is derived: see [LICENSE](LICENSE).
+the package is derived: see [LICENSE](LICENSE). One unchanged Plasma file
+(`LayoutManager.js`) is under the LGPL version 2 or later, as its header says.
