@@ -15,8 +15,9 @@ import "PopupMath.js" as PopupMath
 // - Resize handles on its free edges and corners (not on the edge attached to
 //   the panel). The size snaps to the plasmoid grid cells while dragging.
 // - In the middle, its size and its position along the panel (from the start
-//   of the panel), in cells: dragging it moves the popup along the panel,
-//   snapped to the cells; a double click puts it back centered on its widget.
+//   of the panel), in cells.
+// - Dragging anywhere else moves the popup along the panel, snapped to the
+//   cells; a double click puts it back centered on its widget.
 //
 // A popup never moved stays centered on its widget by Plasma: resizing it moves
 // both its edges along the panel. A moved popup (PopupPlacement) keeps its
@@ -190,6 +191,29 @@ Item {
                                                           : count.toLocaleString(Qt.locale(), "f", 1);
     }
 
+    // Move along the panel: drag anywhere in the popup but on the handles (the
+    // widget content gets no clicks while editing); double click: back to
+    // centered on its widget
+    MouseArea {
+        id: moveArea
+        anchors.fill: parent
+        preventStealing: true
+        cursorShape: pressed ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+
+        onPressed: mouse => handles.moveStarted(mapToGlobal(mouse.x, mouse.y))
+        onPositionChanged: mouse => {
+            if (pressed) {
+                handles.moveMoved(mapToGlobal(mouse.x, mouse.y));
+            }
+        }
+        onReleased: handles.dragEnded()
+        onCanceled: handles.dragEnded()
+        onDoubleClicked: {
+            handles.liveOffset = undefined;
+            handles.placement.setOffset(handles.plasmoidItem, undefined, true);
+        }
+    }
+
     // Frame showing that the popup can be resized
     Rectangle {
         anchors.fill: parent
@@ -199,7 +223,7 @@ Item {
         opacity: handles.dragging ? 1 : 0.6
     }
 
-    // Size and position, shown all along (user's choice); dragged to move the popup
+    // Size and position, shown all along (user's choice)
     Rectangle {
         id: info
         anchors.centerIn: parent
@@ -207,7 +231,7 @@ Item {
         height: infoColumn.implicitHeight + Kirigami.Units.smallSpacing * 2
         radius: Kirigami.Units.cornerRadius
         color: Kirigami.Theme.highlightColor
-        opacity: handles.dragging || moveArea.containsMouse ? 1 : 0.8
+        opacity: handles.dragging ? 1 : 0.8
 
         Column {
             id: infoColumn
@@ -236,28 +260,6 @@ Item {
                     const offset = handles.placement.currentOffset(popup);
                     return `${handles.horizontalPanel ? "x" : "y"} ${handles.cells(offset, handles.cellAlong)}`;
                 }
-            }
-        }
-
-        MouseArea {
-            id: moveArea
-            anchors.fill: parent
-            hoverEnabled: true
-            preventStealing: true
-            cursorShape: handles.horizontalPanel ? Qt.SizeHorCursor : Qt.SizeVerCursor
-
-            onPressed: mouse => handles.moveStarted(mapToGlobal(mouse.x, mouse.y))
-            onPositionChanged: mouse => {
-                if (pressed) {
-                    handles.moveMoved(mapToGlobal(mouse.x, mouse.y));
-                }
-            }
-            onReleased: handles.dragEnded()
-            onCanceled: handles.dragEnded()
-            onDoubleClicked: {
-                // Back to centered on its widget
-                handles.liveOffset = undefined;
-                handles.placement.setOffset(handles.plasmoidItem, undefined, true);
             }
         }
     }

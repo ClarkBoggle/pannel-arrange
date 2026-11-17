@@ -53,6 +53,12 @@ rm -rf "$TARGET"
 mv "$TARGET.new" "$TARGET"
 echo "Installed in $TARGET"
 
+# plasmashell started outside systemd (plasmashell --replace): stopped first,
+# otherwise the service cannot start and the old code keeps running
+if ! systemctl --user is-active --quiet plasma-plasmashell && pgrep -x plasmashell > /dev/null; then
+    kquitapp6 plasmashell || true
+    for _ in $(seq 1 20); do pgrep -x plasmashell > /dev/null || break; sleep 0.5; done
+fi
 # Start limit of the service (3 per minute) reset: several installs in a row
 # would otherwise leave the desktop stopped
 systemctl --user reset-failed plasma-plasmashell 2> /dev/null || true
