@@ -6,6 +6,7 @@ import QtQuick
 
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.components as PlasmaComponents3
+import org.kde.plasma.plasmoid
 
 import "PopupMath.js" as PopupMath
 
@@ -59,7 +60,7 @@ Item {
     // in this session
     property var liveOffset: undefined
     readonly property bool placed: liveOffset !== undefined
-        || placement.offsets[plasmoidItem.Plasmoid.id] !== undefined
+        || placement.offsets[plasmoidItem?.Plasmoid.id] !== undefined
 
     // While dragging: the size or position the mouse asks for, not snapped
     property bool dragging: false
@@ -72,6 +73,28 @@ Item {
 
     // (Screen is only known once in the popup)
     Component.onCompleted: Qt.callLater(() => cell = cellOn(handles.Screen.name))
+
+    // Plasma enlarges the popup to the minimum size of its content, which may
+    // grow after the size was set (e.g. the CPU monitor once its sensors are
+    // loaded): the size is put back on the grid, on the first whole number of
+    // cells above that minimum
+    Connections {
+        target: handles.popup
+        function onMinimumWidthChanged(): void {
+            Qt.callLater(handles.fitToGrid);
+        }
+        function onMinimumHeightChanged(): void {
+            Qt.callLater(handles.fitToGrid);
+        }
+    }
+
+    function fitToGrid(): void {
+        if (dragging || !popup || !cell) {
+            return;
+        }
+        setLength(PopupMath.snapSize(popup.width, cell.width, popup.minimumWidth, popup.maximumWidth), true);
+        setLength(PopupMath.snapSize(popup.height, cell.height, popup.minimumHeight, popup.maximumHeight), false);
+    }
 
     Connections {
         target: handles.popup
