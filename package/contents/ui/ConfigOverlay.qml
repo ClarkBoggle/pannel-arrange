@@ -169,6 +169,8 @@ MouseArea {
     onReleased: mouse => {
         if (configurationArea.dragAndDropping) {
             finishDragOperation();
+        } else if (popupResize.toggle(configurationArea.currentApplet)) {
+            // Popup resizing: the click opened or closed the widget popup
         } else {
             tooltip.openedByTap = true;
             tooltip.raise();
@@ -210,6 +212,11 @@ MouseArea {
         Layout.minimumHeight: configurationArea.currentApplet?.Layout.minimumHeight ?? 0
         Layout.fillWidth: configurationArea.currentApplet?.Layout.fillWidth ?? false
         Layout.fillHeight: configurationArea.currentApplet?.Layout.fillHeight ?? false
+    }
+
+    // Popup resizing: a click opens the widget popup, resized on the grid
+    PopupResize {
+        id: popupResize
     }
 
     Timer {
@@ -284,7 +291,8 @@ MouseArea {
     PlasmaCore.PopupPlasmaWindow {
         id: tooltip
         property bool openedByTap
-        visible: configurationArea.currentApplet && !configurationArea.dragAndDropping && !showTimer.running
+        // Popup resizing: hidden while a widget popup is open
+        visible: configurationArea.currentApplet && !configurationArea.dragAndDropping && !showTimer.running && !popupResize.popupOpen
         visualParent: configurationArea.currentApplet
         // Try to dodge the ruler, as we can't cover it since it's a layershell surface
         margin: configurationArea.Window.window?.lengthMode === 2 ? Kirigami.Units.gridUnit * 2 : 0

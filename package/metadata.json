@@ -1,4 +1,6 @@
 {
+    "KPackageStructure": "Plasma/Applet",
+    "X-Plasma-RootPath": "plasma-pannel",
     "KPlugin": {
         "Authors": [
             {
@@ -64,6 +66,7 @@
         ],
         "BugReportUrl": "https://bugs.kde.org/enter_bug.cgi?product=plasmashell&component=Panel",
         "Category": "",
+        "Id": "org.kde.panel",
         "License": "GPL-2.0+",
         "Name": "Panel",
         "Name[ar]": "لوحة",
