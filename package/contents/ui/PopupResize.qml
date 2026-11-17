@@ -3,6 +3,7 @@
 */
 
 import QtQuick
+import QtQuick.Layouts
 
 // Popup resizing, in panel edit mode (created with ConfigOverlay, which only
 // exists in edit mode):
@@ -57,6 +58,17 @@ QtObject {
         if (!plasmoidItem?.fullRepresentation || !plasmoidItem.compactRepresentationItem?.visible) {
             return false;
         }
+        // An empty popup (some widgets declare one only because Plasma wants one,
+        // e.g. Catwalk: "fullRepresentation: Item {}") is not opened. Its content
+        // is created first without opening it (Plasma keeps it then anyway).
+        if (!plasmoidItem.fullRepresentationItem) {
+            const preload = plasmoidItem.preloadFullRepresentation;
+            plasmoidItem.preloadFullRepresentation = true;
+            plasmoidItem.preloadFullRepresentation = preload;
+        }
+        if (isEmpty(plasmoidItem.fullRepresentationItem)) {
+            return false;
+        }
 
         if (plasmoidItem.expanded) {
             plasmoidItem.expanded = false;
@@ -74,6 +86,12 @@ QtObject {
         // (the full representation may only be created now)
         Qt.callLater(addHandles);
         return true;
+    }
+
+    // A full representation with nothing to show: no children, no size
+    function isEmpty(item: Item): bool {
+        return !item || (item.children.length === 0 && item.implicitWidth <= 0 && item.implicitHeight <= 0
+                         && !(item.Layout.preferredWidth > 0) && !(item.Layout.preferredHeight > 0));
     }
 
     function addHandles(): void {
