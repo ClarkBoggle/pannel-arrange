@@ -40,6 +40,9 @@ Item {
 
     readonly property Component anchorComponent: Component {
         Item {
+            id: anchorItem
+            // Id of the applet of the popup
+            required property int appletId
             // Popup start from the start of the panel window
             required property real offset
             required property var popup
@@ -52,6 +55,17 @@ Item {
             y: horizontal ? widgetRect.y : offset + popup.height / 2
             width: horizontal ? 0 : widgetRect.width
             height: horizontal ? widgetRect.height : 0
+
+            // The anchor follows the popup size, but Plasma may have placed the
+            // popup before (e.g. its size changing after its first placement,
+            // once its frame is known): placed again after each anchor move
+            onXChanged: Qt.callLater(placeAgain)
+            onYChanged: Qt.callLater(placeAgain)
+            function placeAgain(): void {
+                if (placement.anchorItems[appletId] === anchorItem && popup.visualParent === anchorItem) {
+                    placement.placeAgain(popup, anchorItem);
+                }
+            }
 
             property rect widgetRect: Qt.rect(0, 0, 0, 0)
             function updateWidgetRect(): void {
@@ -167,6 +181,7 @@ Item {
         if (!anchor || anchor.popup !== popup) {
             anchor?.destroy();
             anchor = anchorComponent.createObject(content, {
+                appletId: id,
                 offset: offset,
                 popup: popup,
                 horizontal: Qt.binding(() => placement.horizontal),
