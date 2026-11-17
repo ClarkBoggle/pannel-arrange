@@ -142,6 +142,7 @@ Item {
         const ids = [];
         for (const item of plasmoidItems()) {
             ids.push(String(item.Plasmoid.id));
+            watch(item);
             apply(item, offsetOf(item));
         }
         // Anchors of removed widgets
@@ -206,7 +207,8 @@ Item {
     // At its first opening, Plasma creates the full representation of a widget
     // and puts it in the popup, and only then shows the popup: the position is
     // applied when the full representation gets its window, before the popup
-    // is placed
+    // is placed. Its size is kept from then on (keepSize()). All the widgets
+    // are watched.
     function watch(plasmoidItem: Item): void {
         watchedItems = watchedItems.filter(item => item); // (destroyed: null)
         if (watchedItems.includes(plasmoidItem)) {
@@ -218,15 +220,61 @@ Item {
             if (content && !watchedItems.includes(content)) {
                 watchedItems.push(content);
                 content.windowChanged.connect(() => {
+                    const popup = placement.popupOf(plasmoidItem);
+                    if (popup) {
+                        placement.keepSize(popup);
+                    }
                     const offset = placement.offsetOf(plasmoidItem);
                     if (offset !== undefined) {
                         placement.apply(plasmoidItem, offset);
                     }
                 });
             }
+            const popup = placement.popupOf(plasmoidItem);
+            if (popup) {
+                placement.keepSize(popup);
+            }
         };
         plasmoidItem.fullRepresentationItemChanged.connect(watchContent);
         watchContent();
+    }
+
+    // Plasma enlarges a popup to the minimum size of its content, and does not
+    // shrink it back when that minimum goes down again. Some widgets ask a
+    // larger minimum for a moment while they load (CPU monitor: 300 px high,
+    // then 212): the popup kept the larger size, saved when it closed, so the
+    // size set by the user was lost. The size before such a temporary minimum is
+    // given back once the minimum goes down to it again.
+    function keepSize(popup: var): void {
+        if (watchedItems.includes(popup)) {
+            return;
+        }
+        watchedItems.push(popup);
+        let heldWidth = 0;
+        let heldHeight = 0;
+        // (the minimum changes before Plasma enlarges the popup)
+        popup.minimumWidthChanged.connect(() => {
+            if (popup.minimumWidth > popup.width) {
+                heldWidth = heldWidth || popup.width;
+            } else if (heldWidth && popup.minimumWidth <= heldWidth) {
+                const width = heldWidth;
+                heldWidth = 0;
+                if (popup.width > width) {
+                    popup.width = width;
+                }
+            }
+        });
+        popup.minimumHeightChanged.connect(() => {
+            if (popup.minimumHeight > popup.height) {
+                heldHeight = heldHeight || popup.height;
+            } else if (heldHeight && popup.minimumHeight <= heldHeight) {
+                const height = heldHeight;
+                heldHeight = 0;
+                if (popup.height > height) {
+                    popup.height = height;
+                }
+            }
+        });
     }
 
     // Placed again by Plasma on the anchor (it does when its visual parent

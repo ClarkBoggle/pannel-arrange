@@ -60,7 +60,7 @@ Item {
     // in this session
     property var liveOffset: undefined
     readonly property bool placed: liveOffset !== undefined
-        || placement.offsets[plasmoidItem?.Plasmoid.id] !== undefined
+        || placement.offsets[plasmoidItem?.Plasmoid?.id] !== undefined
 
     // While dragging: the size or position the mouse asks for, not snapped
     property bool dragging: false
