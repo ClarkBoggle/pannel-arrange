@@ -36,12 +36,17 @@ Item {
     readonly property int thickness: Kirigami.Units.largeSpacing
     readonly property int cornerSize: thickness * 3
 
-    // While dragging: the size the mouse asks for, not snapped, and the grid
+    // Plasmoid grid cell of the screen of the popup (looked up again at each drag)
+    property var cell: null
+
+    // While dragging: the size the mouse asks for, not snapped
     property bool dragging: false
     property real rawWidth: 0
     property real rawHeight: 0
     property point lastPosition
-    property var cell: null
+
+    // (Screen is only known once in the popup)
+    Component.onCompleted: Qt.callLater(() => cell = cellOn(handles.Screen.name))
 
     Connections {
         target: handles.popup
@@ -96,10 +101,10 @@ Item {
         opacity: handles.dragging ? 1 : 0.6
     }
 
-    // Size while dragging, in cells (in pixels without a grid)
+    // Size, shown all along (user's choice), in cells (in pixels without a grid)
     Rectangle {
         anchors.centerIn: parent
-        visible: handles.dragging
+        opacity: handles.dragging ? 1 : 0.8
         width: sizeLabel.implicitWidth + Kirigami.Units.largeSpacing * 2
         height: sizeLabel.implicitHeight + Kirigami.Units.smallSpacing * 2
         radius: Kirigami.Units.cornerRadius
