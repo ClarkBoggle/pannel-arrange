@@ -33,6 +33,7 @@ MouseArea {
     required property bool isHorizontal
     required property bool reverse
     required property int rootWidth
+    required property PopupPlacement popupPlacement // Popup resizing (main.qml)
 
     property AppletContainer currentApplet
     property int draggedItemIndex
@@ -217,6 +218,7 @@ MouseArea {
     // Popup resizing: a click opens the widget popup, resized on the grid
     PopupResize {
         id: popupResize
+        placement: configurationArea.popupPlacement
     }
 
     Timer {

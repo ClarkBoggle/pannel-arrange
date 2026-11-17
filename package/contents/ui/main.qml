@@ -143,12 +143,20 @@ ContainmentItem {
             "rootWidth": Qt.binding(() => root.width),
             "reverse": Qt.binding(() => root.reverse),
             "lastSpacer": lastSpacer,
-            "addWidgetsButton": addWidgetsButton
+            "addWidgetsButton": addWidgetsButton,
+            "popupPlacement": popupPlacement // Popup resizing
         });
         component.destroy();
     }
 
 //END connections
+
+    // Popup resizing: popups placed by the user along the panel
+    PopupPlacement {
+        id: popupPlacement
+        appletsModel: appletsModel
+        horizontal: root.isHorizontal
+    }
 
     TapHandler {
         acceptedButtons: Qt.LeftButton

@@ -19,6 +19,18 @@ function snapSize(size, cell, min, max) {
     return clamp(Math.round(size / cell) * cell, smallest, largest);
 }
 
+// Edges of a popup placed by the user along the panel (positions from the start
+// of the panel), one of them dragged to rawPosition: the dragged edge snaps to a
+// grid line (multiple of cell from the start of the panel), the other stays;
+// the size stays within [minSize, maxSize] and the popup within the panel
+// (length). Returns { start, end }.
+function dragEdge(start, end, movingStart, rawPosition, cell, minSize, maxSize, length) {
+    if (movingStart) {
+        return { start: snapSize(rawPosition, cell, Math.max(0, end - maxSize), end - minSize), end: end };
+    }
+    return { start: start, end: snapSize(rawPosition, cell, start + minSize, Math.min(length, start + maxSize)) };
+}
+
 // How much the popup size changes when its dragged edge moves by one pixel,
 // along the panel: Plasma keeps the popup centered on its widget, so both edges
 // move (2), unless the popup is held against the side of its area (1).

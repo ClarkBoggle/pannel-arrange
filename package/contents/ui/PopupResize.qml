@@ -35,6 +35,9 @@ QtObject {
     property Item closedApplet: null
     property double closedTime: 0
 
+    // Popup positions along the panel (main.qml)
+    required property PopupPlacement placement
+
     // GridDrag.js of plasma-arrange: undefined before loading it, null when
     // not installed
     property var gridDrag: undefined
@@ -42,6 +45,7 @@ QtObject {
     readonly property Component handlesComponent: Component {
         PopupHandles {
             cellOn: screenName => popupResize.plasmoidCellOn(screenName)
+            placement: popupResize.placement
         }
     }
 
@@ -103,7 +107,7 @@ QtObject {
         if (!applet?.expanded || !popup || popup.objectName !== "popupWindow") {
             return;
         }
-        const item = handlesComponent.createObject(content.parent);
+        const item = handlesComponent.createObject(content.parent, { plasmoidItem: applet });
         item.closed.connect(() => popupClosed(item));
         handles = item;
     }
