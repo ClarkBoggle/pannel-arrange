@@ -1,4 +1,4 @@
-# plasma-pannel
+# pannel-arrange
 
 *Made for myself with AI, offered to anyone who finds it useful.*
 
@@ -33,24 +33,24 @@ The panel configuration open, the popup of a CPU monitor widget opened over it:
 16 × 9 cells, moved to 38 cells from the start of the panel. The desktop shows
 the grid of plasma-arrange.
 
-[![Panel configuration open, the popup of a CPU monitor widget with its handles](https://github.com/ClarkBoggle/plasma-pannel/blob/assets/desktop-popup.jpg?raw=true)](https://github.com/ClarkBoggle/plasma-pannel/blob/assets/desktop-popup.jpg?raw=true)
+[![Panel configuration open, the popup of a CPU monitor widget with its handles](https://github.com/ClarkBoggle/pannel-arrange/blob/assets/desktop-popup.jpg?raw=true)](https://github.com/ClarkBoggle/pannel-arrange/blob/assets/desktop-popup.jpg?raw=true)
 
 The popup in edit mode: its frame, the resize handles on its free edges and
 corners (not on the edge against the panel), its size and position in the
 middle.
 
-![The popup in edit mode, with its handles, its size and its position](https://github.com/ClarkBoggle/plasma-pannel/blob/assets/popup.png?raw=true)
+![The popup in edit mode, with its handles, its size and its position](https://github.com/ClarkBoggle/pannel-arrange/blob/assets/popup.png?raw=true)
 
 ## Your system is not modified
 
-- Plasma's panel is built into a plugin (`org.kde.panel.so`): plasma-pannel is a
+- Plasma's panel is built into a plugin (`org.kde.panel.so`): pannel-arrange is a
   **copy of its source** (`containments/panel` of plasma-desktop, at the tag of
   the installed Plasma version), with the popup resizing added to it.
 - **Everything is installed in your home folder**:
   - the panel, in `~/.local/share/plasma/plasmoids/org.kde.panel`. Plasma uses
     it instead of the one of its plugin, for your user only;
   - a copy of Plasma's panel translations, in
-    `~/.local/share/locale/<language>/LC_MESSAGES/plasma_applet_plasma-pannel.mo`
+    `~/.local/share/locale/<language>/LC_MESSAGES/plasma_applet_pannel-arrange.mo`
     (the copy of the panel looks for them under this name).
 - **Nothing is changed in the system**: no file outside your home folder is
   written, the plugin stays untouched, no root rights are needed (never run the
@@ -70,8 +70,8 @@ middle.
 ## Installation
 
 ```sh
-git clone https://github.com/ClarkBoggle/plasma-pannel.git
-cd plasma-pannel
+git clone https://github.com/ClarkBoggle/pannel-arrange.git
+cd pannel-arrange
 ./install.sh
 ```
 
@@ -108,7 +108,7 @@ Seeing a new Plasma version, it runs `./update-plasma.sh` first (which can also
 be run directly): it fetches the panel source of the new version, applies the
 popup resizing to it again and reinstalls. If the changes conflict with the new
 version, it removes the installed copy and stops: Plasma uses its own panel
-until plasma-pannel is updated for that version.
+until pannel-arrange is updated for that version.
 
 ## Files
 
@@ -236,7 +236,7 @@ panel, so that existing panels use it.
 ```diff
  {
 +    "KPackageStructure": "Plasma/Applet",
-+    "X-Plasma-RootPath": "plasma-pannel",
++    "X-Plasma-RootPath": "pannel-arrange",
      "KPlugin": {
 ```
 
@@ -247,7 +247,7 @@ panel, so that existing panels use it.
 ```
 
 Plasma then looks for the panel translations under the name
-`plasma_applet_plasma-pannel`: `install.sh` copies Plasma's under that name.
+`plasma_applet_pannel-arrange`: `install.sh` copies Plasma's under that name.
 
 ## Credits
 

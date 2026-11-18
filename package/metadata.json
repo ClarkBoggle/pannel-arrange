@@ -1,6 +1,6 @@
 {
     "KPackageStructure": "Plasma/Applet",
-    "X-Plasma-RootPath": "plasma-pannel",
+    "X-Plasma-RootPath": "pannel-arrange",
     "KPlugin": {
         "Authors": [
             {

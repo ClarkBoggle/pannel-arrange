@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs plasma-pannel for the current user: copies our package to
+# Installs pannel-arrange for the current user: copies our package to
 # ~/.local/share/plasma/plasmoids/org.kde.panel (Plasma then uses it instead of
 # the panel built into its plugin), copies Plasma's panel translations under
 # our translation domain, and reloads the desktop. The system is never modified.
@@ -11,7 +11,7 @@ TARGET=$HOME/.local/share/plasma/plasmoids/org.kde.panel
 # File only found in our package: tells our installed copy from another one
 OURS=contents/ui/PopupResize.qml
 # Translation domain of our package: plasma_applet_ + its X-Plasma-RootPath
-DOMAIN=plasma_applet_plasma-pannel
+DOMAIN=plasma_applet_pannel-arrange
 SYSTEM_DOMAIN=plasma_applet_org.kde.panel
 
 cd "$(dirname "$0")"

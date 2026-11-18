@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Uninstalls plasma-pannel: removes the copy made by install.sh and its
+# Uninstalls pannel-arrange: removes the copy made by install.sh and its
 # translations, so Plasma uses its own panel again, and reloads the desktop.
 # Popup sizes stay in the Plasma configuration.
 set -euo pipefail
 
 TARGET=$HOME/.local/share/plasma/plasmoids/org.kde.panel
 OURS=contents/ui/PopupResize.qml
-DOMAIN=plasma_applet_plasma-pannel
+DOMAIN=plasma_applet_pannel-arrange
 
 if [ -L "$TARGET" ] || [ -f "$TARGET/$OURS" ]; then
     rm -rf "$TARGET"
