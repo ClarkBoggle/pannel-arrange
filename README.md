@@ -4,6 +4,13 @@
 
 Resize and place the popups of the KDE Plasma panel widgets on a grid.
 
+It works with or without [plasma-arrange](https://github.com/ClarkBoggle/plasma-arrange):
+
+- **With plasma-arrange**: sizes and positions snap to its **plasmoid grid**, the
+  one of the desktop shown on the screen of the popup, and are shown in cells.
+- **Without it**: they use the **screen coordinates**, in pixels, without
+  snapping.
+
 In edit mode, open the configuration of a panel (click on it), then click on
 one of its widgets: its popup opens, framed, with resize handles.
 
@@ -13,8 +20,8 @@ one of its widgets: its popup opens, framed, with resize handles.
   snapped to the cells counted from the start of the panel; it always stays
   against the panel. A double click puts it back centered on its widget.
 - In the middle, the popup shows its **size** and its **position** along the
-  panel, in cells (`16 × 9`, `x 38`): give several popups the same position to
-  open them at the same place.
+  panel, in cells (`16 × 9`, `x 38`; in pixels without plasma-arrange): give
+  several popups the same position to open them at the same place.
 - A second click on the widget closes its popup. Widgets without a popup (shown
   in full in the panel, or with an empty one) show their usual menu.
 
@@ -33,11 +40,6 @@ corners (not on the edge against the panel), its size and position in the
 middle.
 
 ![The popup in edit mode, with its handles, its size and its position](https://github.com/ClarkBoggle/plasma-pannel/blob/assets/popup.png?raw=true)
-
-**The grid** is the plasmoid grid of [plasma-arrange](https://github.com/ClarkBoggle/plasma-arrange),
-of the desktop shown on the screen of the popup. Without plasma-arrange,
-everything works the same without snapping: sizes and positions are then shown
-in pixels.
 
 ## Your system is not modified
 
@@ -129,8 +131,8 @@ until plasma-pannel is updated for that version.
 
 | File | Change |
 |---|---|
-| `package/contents/ui/main.qml` | 9 lines, marked *Popup resizing*: see [Changes to main.qml](#changes-to-mainqml) |
-| `package/contents/ui/ConfigOverlay.qml` | 11 lines, marked *Popup resizing*: see [Changes to ConfigOverlay.qml](#changes-to-configoverlayqml) |
+| `package/contents/ui/main.qml` | 8 lines added, 1 line of Plasma changed, marked *Popup resizing*: see [Changes to main.qml](#changes-to-mainqml) |
+| `package/contents/ui/ConfigOverlay.qml` | 10 lines added, 1 line of Plasma changed, marked *Popup resizing*: see [Changes to ConfigOverlay.qml](#changes-to-configoverlayqml) |
 | `package/contents/config/main.xml` | The `PopupOffsets` setting: positions of the moved popups |
 | `package/metadata.json` | 3 lines: see [Changes to metadata.json](#changes-to-metadatajson) |
 
@@ -141,7 +143,9 @@ All the other files of `package/` are Plasma's, unchanged.
 `main.qml` is the main file of Plasma's panel. It is kept as close to the
 original as possible: all the logic is in the added files. These lines must be
 carried over when a Plasma update changes it (`update-plasma.sh` does it).
-Line numbers are those of the modified file.
+
+In total: 8 lines added (1 of them a comment, 1 empty), 1 line of Plasma changed
+(a comma added). Line numbers are those of the modified file.
 
 **1. The panel configuration gets the popup placement** (line 147)
 
@@ -175,6 +179,9 @@ position.
 `ConfigOverlay.qml` only exists while the panel configuration is open: it lets
 widgets be moved in the panel, and shows the menu of a clicked widget (*Remove*,
 *Configure…*, *Show Alternatives…*).
+
+In total: 10 lines added (3 of them comments, 1 empty), 1 line of Plasma
+changed. Line numbers are those of the modified file.
 
 **1. The popup placement, given by main.qml** (line 36)
 
