@@ -10,6 +10,12 @@
 # there are any.
 set -euo pipefail
 
+# Reminder: the update is only local until pushed (the tag is moved, hence the +)
+push_reminder() {
+    echo "To publish this update (only if you can write to the repository):"
+    echo "    git push origin main upstream +refs/tags/plasma-$version"
+}
+
 REPOSITORY=https://invent.kde.org/plasma/plasma-desktop.git
 
 cd "$(dirname "$0")"
@@ -36,6 +42,10 @@ panel=$source/containments/panel
 
 # 2. Laid out as a package and committed to the upstream branch (in a temporary
 #    working tree, without touching the current branch)
+# (fresh clone: only origin/upstream exists, the local branch is created from it)
+if ! git rev-parse --quiet --verify refs/heads/upstream > /dev/null; then
+    git branch --quiet --track upstream origin/upstream
+fi
 git worktree add --quiet "$worktree" upstream
 rm -rf "$worktree/package"
 mkdir -p "$worktree/package/contents/ui" "$worktree/package/contents/config"
@@ -49,6 +59,7 @@ if git -C "$worktree" diff --cached --quiet; then
     # (a new Plasma version with the same panel is tagged too)
     git tag --force "plasma-$version" upstream > /dev/null
     ./install.sh
+    push_reminder
     exit 0
 fi
 git -C "$worktree" commit --quiet -m "org.kde.panel containment of Plasma $version (plasma-desktop v$version, unmodified, laid out as a package)"
@@ -63,9 +74,11 @@ if ! git merge --no-edit -m "Update to the panel of Plasma $version" upstream; t
     ./uninstall.sh || true
     echo "Resolve the conflicts (see git status), then: git commit" >&2
     echo "then: ./install.sh" >&2
+    push_reminder >&2
     exit 1
 fi
 
 # 4. Installed again
 ./install.sh
 echo "Panel updated to Plasma $version."
+push_reminder
