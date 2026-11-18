@@ -56,8 +56,7 @@ Item {
     readonly property real cellAlong: (horizontalPanel ? cell?.width : cell?.height) ?? 0
     readonly property real cellAcross: (horizontalPanel ? cell?.height : cell?.width) ?? 0
 
-    // Position set while dragging (saved on release), undefined when not moved
-    // in this session
+    // Position set while dragging (saved on release), else undefined
     property var liveOffset: undefined
     readonly property bool placed: liveOffset !== undefined
         || placement.offsets[plasmoidItem?.Plasmoid?.id] !== undefined
@@ -117,6 +116,12 @@ Item {
     // (Screen is only known once in the popup)
     Component.onCompleted: Qt.callLater(() => cell = cellOn(handles.Screen.name))
 
+    // A popup sized or placed without the grid, or on another one, is put on
+    // the grid when its handles are shown and at each drag (a new cell object
+    // each time): else a placed popup would keep the edge that is not dragged
+    // off the grid, and never get a whole number of cells
+    onCellChanged: fitToGrid()
+
     // Plasma enlarges the popup to the minimum size of its content, which may
     // grow after the size was set (e.g. the CPU monitor once its sensors are
     // loaded): the size is put back on the grid, on the first whole number of
@@ -131,12 +136,83 @@ Item {
         }
     }
 
+    // The borders of the popup (its frame, around the handles) are still
+    // resized by the compositor, pixel by pixel (libplasma's
+    // WindowResizeHandler takes the presses in the frame padding before any
+    // item; measured: widths off the grid without any of our drags). Each size
+    // it gives is put back on the grid at once, as terminals do with their
+    // character cells, and once more when the size has stopped changing.
+    // (fitBurst, fitTries: not for ever, should a size be refused)
+    property bool fitting: false
+    property int fitBurst: 0
+    property real fitBurstTime: 0
+    property int fitTries: 0
+
+    function sizeChanged(): void {
+        fitTimer.restart();
+        if (fitting || dragging) {
+            return;
+        }
+        const now = Date.now();
+        if (now - fitBurstTime > 100) {
+            fitBurstTime = now;
+            fitBurst = 0;
+        }
+        if (++fitBurst > 30) {
+            return;
+        }
+        fitting = true;
+        fitToGrid();
+        fitting = false;
+    }
+
+    Connections {
+        target: handles.popup
+        function onWidthChanged(): void {
+            handles.sizeChanged();
+        }
+        function onHeightChanged(): void {
+            handles.sizeChanged();
+        }
+    }
+
+    Timer {
+        id: fitTimer
+        interval: 250
+        onTriggered: {
+            const popup = handles.popup;
+            if (handles.dragging || !popup || !handles.cell) {
+                return;
+            }
+            const width = popup.width;
+            const height = popup.height;
+            if (handles.fitTries < 3) {
+                handles.fitting = true;
+                handles.fitToGrid();
+                handles.fitting = false;
+            }
+            handles.fitTries = popup.width !== width || popup.height !== height ? handles.fitTries + 1 : 0;
+        }
+    }
+
     function fitToGrid(): void {
         if (dragging || !popup || !cell) {
             return;
         }
-        setLength(PopupMath.snapSize(popup.width, cell.width, popup.minimumWidth, popup.maximumWidth), true);
-        setLength(PopupMath.snapSize(popup.height, cell.height, popup.minimumHeight, popup.maximumHeight), false);
+        const width = PopupMath.snapSize(popup.width, cell.width, popup.minimumWidth, popup.maximumWidth);
+        const height = PopupMath.snapSize(popup.height, cell.height, popup.minimumHeight, popup.maximumHeight);
+        // The position of a placed popup too
+        const saved = placement.offsetOf(plasmoidItem);
+        const room = placement.panelLength() - (horizontalPanel ? width : height);
+        if (saved !== undefined && room >= 0) {
+            const offset = PopupMath.snapSize(saved, cellAlong, 0, room);
+            if (offset !== saved) {
+                placement.setOffset(plasmoidItem, offset, true);
+                geometryAsked();
+            }
+        }
+        setLength(width, true);
+        setLength(height, false);
     }
 
     Connections {
@@ -156,7 +232,10 @@ Item {
         cell = cellOn(handles.Screen.name);
         rawWidth = popup.width;
         rawHeight = popup.height;
-        pressStart = placement.currentOffset(popup);
+        // (a placed popup: where it was asked, its window may not be there
+        // yet, or be one pixel off, centered on its anchor with an odd size)
+        pressStart = placement.offsetOf(plasmoidItem) ?? placement.currentOffset(popup);
+        fitTries = 0;
         pressEnd = pressStart + length();
         lastPosition = position;
         dragging = true;
@@ -166,6 +245,7 @@ Item {
         dragging = false;
         if (liveOffset !== undefined) {
             placement.setOffset(plasmoidItem, liveOffset, true);
+            liveOffset = undefined; // (saved: fitToGrid() may change it)
         }
     }
 
