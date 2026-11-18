@@ -58,8 +58,9 @@ Item {
 
     // Position set while dragging (saved on release), else undefined
     property var liveOffset: undefined
-    readonly property bool placed: liveOffset !== undefined
-        || placement.offsets[plasmoidItem?.Plasmoid?.id] !== undefined
+    // Position asked for (dragged or saved), undefined when centered
+    readonly property var targetOffset: liveOffset ?? placement.offsets[plasmoidItem?.Plasmoid?.id]
+    readonly property bool placed: targetOffset !== undefined
 
     // While dragging: the size or position the mouse asks for, not snapped
     property bool dragging: false
@@ -414,11 +415,24 @@ Item {
                     if (!popup || !handles.placement.Window.window) {
                         return "";
                     }
-                    const offset = handles.placement.currentOffset(popup);
+                    const offset = handles.targetOffset ?? handles.centeredOffset;
                     return `${handles.horizontalPanel ? "x" : "y"} ${handles.cells(offset, handles.cellAlong)}`;
                 }
             }
         }
+    }
+
+    // Position shown in the label: the asked one when placed (the window
+    // reaches it only one frame after a resize, in between it is placed
+    // centered on the old anchor: a value off the cells was shown), else the
+    // window position, kept while the popup settles.
+    property real centeredOffset: 0
+    Binding {
+        target: handles
+        property: "centeredOffset"
+        when: !handles.placed && !handles.settling && !!handles.popup && !!handles.placement.Window.window
+        value: handles.popup ? handles.placement.currentOffset(handles.popup) : 0
+        restoreMode: Binding.RestoreNone
     }
 
     Repeater {
