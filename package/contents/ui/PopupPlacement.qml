@@ -45,14 +45,21 @@ Item {
             required property int appletId
             // Popup start from the start of the panel window
             required property real offset
+            // Popup length along the panel asked while it is resized by the
+            // user, else undefined (the length of the popup). Set before the
+            // popup is resized: Plasma places the popup again when its size
+            // changes, the anchor must already be where the popup will be
+            // (else the popup is shown one frame centered on the old place,
+            // and shakes while resized)
+            property var askedLength: undefined
             required property var popup
             required property bool horizontal
             // The widget: the anchor takes its size across the panel
             required property Item widget
 
             // (scene coordinates: parent is the window content item)
-            x: horizontal ? offset + popup.width / 2 : widgetRect.x
-            y: horizontal ? widgetRect.y : offset + popup.height / 2
+            x: horizontal ? offset + (askedLength ?? popup.width) / 2 : widgetRect.x
+            y: horizontal ? widgetRect.y : offset + (askedLength ?? popup.height) / 2
             width: horizontal ? 0 : widgetRect.width
             height: horizontal ? widgetRect.height : 0
 
@@ -122,8 +129,9 @@ Item {
 
     // Moves the popup of a widget (offset undefined: back to centered on its
     // widget). Saved in the configuration only when save is true (at the end
-    // of a drag).
-    function setOffset(plasmoidItem: Item, offset: var, save: bool): void {
+    // of a drag). length: the length along the panel the popup is about to be
+    // given, while it is resized (see askedLength).
+    function setOffset(plasmoidItem: Item, offset: var, save: bool, length: var): void {
         const id = plasmoidItem.Plasmoid.id;
         if (save) {
             const all = Object.assign({}, offsets);
@@ -132,9 +140,12 @@ Item {
             } else {
                 all[id] = Math.round(offset);
             }
-            Plasmoid.configuration.PopupOffsets = JSON.stringify(all); // (applyAll follows)
+            Plasmoid.configuration.PopupOffsets = JSON.stringify(all); // (applyAll follows when changed)
+            if (offset !== undefined) {
+                apply(plasmoidItem, offset);
+            }
         } else {
-            apply(plasmoidItem, offset);
+            apply(plasmoidItem, offset, undefined, length);
         }
     }
 
@@ -155,7 +166,7 @@ Item {
     }
 
     // (knownPopup: the popup window when already known, see watch())
-    function apply(plasmoidItem: Item, offset: var, knownPopup: var): void {
+    function apply(plasmoidItem: Item, offset: var, knownPopup: var, length: var): void {
         const id = plasmoidItem.Plasmoid.id;
         let anchor = anchorItems[id];
 
@@ -198,6 +209,7 @@ Item {
                 }
             });
         }
+        anchor.askedLength = length;
         anchor.offset = offset;
         placeAgain(popup, anchor);
     }

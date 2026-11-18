@@ -71,6 +71,49 @@ Item {
     property real pressEnd: 0
     property point lastPosition
 
+    // A size or position was asked and is not applied yet. The mouse positions
+    // are relative to the popup, which moves when resized or moved: those
+    // received until the compositor has moved it are still relative to its old
+    // place, and would be read as a mouse move back (measured: the popup then
+    // shakes when resized across the panel, most of all without a grid, where
+    // each pixel is a new size). They are skipped.
+    // The compositor moves the popup one frame after the one with the new size
+    // (measured: mouse positions were still relative to the old place after
+    // the first frame), so two frames are waited for, the second one asked
+    // here.
+    property int settleFrames: 0
+    readonly property bool settling: settleFrames > 0
+    property real lastFrameTime: 0
+
+    function geometryAsked(): void {
+        settleFrames = 2;
+        settleTimer.restart();
+    }
+
+    Connections {
+        target: handles.popup
+        function onFrameSwapped(): void {
+            // (sometimes emitted twice for a frame)
+            const now = Date.now();
+            const sameFrame = now - handles.lastFrameTime < 3;
+            handles.lastFrameTime = now;
+            if (sameFrame || handles.settleFrames === 0) {
+                return;
+            }
+            handles.settleFrames--;
+            if (handles.settleFrames > 0) {
+                handles.popup.update();
+            }
+        }
+    }
+
+    // (in case no frame comes)
+    Timer {
+        id: settleTimer
+        interval: 100
+        onTriggered: handles.settleFrames = 0
+    }
+
     // (Screen is only known once in the popup)
     Component.onCompleted: Qt.callLater(() => cell = cellOn(handles.Screen.name))
 
@@ -133,12 +176,16 @@ Item {
     }
 
     function moveMoved(position: point): void {
+        if (settling) {
+            return;
+        }
         rawPosition += horizontalPanel ? position.x - lastPosition.x : position.y - lastPosition.y;
         lastPosition = position;
         const offset = PopupMath.snapSize(rawPosition, cellAlong, 0, placement.panelLength() - length());
         if (offset !== liveOffset) {
             liveOffset = offset;
             placement.setOffset(plasmoidItem, offset, false);
+            geometryAsked();
         }
     }
 
@@ -148,6 +195,9 @@ Item {
     }
 
     function resizeMoved(edges: int, position: point): void {
+        if (settling) {
+            return;
+        }
         const dx = position.x - lastPosition.x;
         const dy = position.y - lastPosition.y;
         lastPosition = position;
@@ -163,11 +213,13 @@ Item {
                 const maximum = horizontalPanel ? popup.maximumWidth : popup.maximumHeight;
                 const span = PopupMath.dragEdge(pressStart, pressEnd, movingStart, rawPosition, cellAlong,
                                                 minimum, maximum, placement.panelLength());
-                setLength(span.end - span.start, horizontalPanel);
-                if (span.start !== liveOffset) {
+                // (the anchor first: see askedLength in PopupPlacement)
+                if (span.start !== liveOffset || span.end - span.start !== length()) {
                     liveOffset = span.start;
-                    placement.setOffset(plasmoidItem, span.start, false);
+                    placement.setOffset(plasmoidItem, span.start, false, span.end - span.start);
+                    geometryAsked();
                 }
+                setLength(span.end - span.start, horizontalPanel);
             } else {
                 // Centered on its widget by Plasma: both edges move
                 const widget = popup.visualParent;
@@ -199,8 +251,10 @@ Item {
     function setLength(size: real, horizontal: bool): void {
         if (horizontal && size !== popup.width) {
             popup.width = size;
+            geometryAsked();
         } else if (!horizontal && size !== popup.height) {
             popup.height = size;
+            geometryAsked();
         }
     }
 
