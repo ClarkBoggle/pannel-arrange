@@ -22,6 +22,18 @@ Outside edit mode, popups open with their size and at their position. Plasma
 saves the size of each popup; the positions are saved in the panel
 configuration.
 
+The panel configuration open, the popup of a CPU monitor widget opened over it:
+16 × 9 cells, moved to 38 cells from the start of the panel. The desktop shows
+the grid of plasma-arrange.
+
+[![Panel configuration open, the popup of a CPU monitor widget with its handles](https://github.com/ClarkBoggle/plasma-pannel/blob/assets/desktop-popup.jpg?raw=true)](https://github.com/ClarkBoggle/plasma-pannel/blob/assets/desktop-popup.jpg?raw=true)
+
+The popup in edit mode: its frame, the resize handles on its free edges and
+corners (not on the edge against the panel), its size and position in the
+middle.
+
+![The popup in edit mode, with its handles, its size and its position](https://github.com/ClarkBoggle/plasma-pannel/blob/assets/popup.png?raw=true)
+
 **The grid** is the plasmoid grid of [plasma-arrange](https://github.com/ClarkBoggle/plasma-arrange),
 of the desktop shown on the screen of the popup. Without plasma-arrange,
 everything works the same without snapping: sizes and positions are then shown
