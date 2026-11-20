@@ -27,6 +27,26 @@ fi
 
 version=$(plasmashell --version | awk '{ print $2 }')
 
+# Shallow or single-branch clone (e.g. git clone --depth 1): the whole history,
+# the upstream branch and the plasma-* tags are needed to merge
+if [ "$(git rev-parse --is-shallow-repository)" = true ]; then
+    git fetch --quiet --unshallow origin
+fi
+if ! git rev-parse --quiet --verify refs/heads/upstream > /dev/null \
+        && ! git rev-parse --quiet --verify refs/remotes/origin/upstream > /dev/null; then
+    git fetch --quiet origin "refs/heads/upstream:refs/heads/upstream" "refs/tags/plasma-*:refs/tags/plasma-*"
+fi
+
+# No git identity configured: the commits of the update are made under a
+# neutral name (git would refuse them otherwise)
+if ! git var GIT_AUTHOR_IDENT > /dev/null 2>&1; then
+    export GIT_AUTHOR_NAME="pannel-arrange update" GIT_AUTHOR_EMAIL="pannel-arrange@localhost"
+    export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME" GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
+    commit="git -c user.name='$GIT_AUTHOR_NAME' -c user.email=$GIT_AUTHOR_EMAIL commit"
+else
+    commit="git commit"
+fi
+
 source=$(mktemp -d)
 worktree=$(mktemp -d)
 trap 'rm -rf "$source"; git worktree remove --force "$worktree"' EXIT
@@ -72,7 +92,7 @@ if ! git merge --no-edit -m "Update to the panel of Plasma $version" upstream; t
     echo
     echo "Conflicts between our changes and the new Plasma version." >&2
     ./uninstall.sh || true
-    echo "Resolve the conflicts (see git status), then: git commit" >&2
+    echo "Resolve the conflicts (see git status), then: $commit" >&2
     echo "then: ./install.sh" >&2
     push_reminder >&2
     exit 1

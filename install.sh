@@ -16,6 +16,13 @@ SYSTEM_DOMAIN=plasma_applet_org.kde.panel
 
 cd "$(dirname "$0")"
 
+# Downloaded as a ZIP: updates for new Plasma versions need a git clone
+if [ "$(git rev-parse --show-toplevel 2> /dev/null)" != "$(pwd -P)" ]; then
+    echo "This folder is not a git clone (downloaded as a ZIP?). Install with:" >&2
+    echo "    git clone https://github.com/ClarkBoggle/pannel-arrange.git" >&2
+    exit 1
+fi
+
 # Another copy of the panel package (not ours): do not overwrite it
 if [ -d "$TARGET" ] && [ ! -L "$TARGET" ] && [ ! -f "$TARGET/$OURS" ]; then
     echo "$TARGET holds another copy of the panel package: move it away first." >&2
