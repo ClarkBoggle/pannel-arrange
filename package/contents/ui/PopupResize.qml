@@ -5,41 +5,34 @@
 import QtQuick
 import QtQuick.Layouts
 
-// Popup resizing, in panel edit mode (created with ConfigOverlay, which only
-// exists in edit mode):
+// Opens widget popups from the panel edit mode, with resize handles.
 //
-// - A click on a widget shown as an icon in the panel opens its popup (instead
-//   of the menu of ConfigOverlay, which still shows when the mouse is over the
-//   widget, but not while the popup is open). A second click closes it.
-// - The popup gets resize handles (PopupHandles.qml); its size snaps to the
-//   plasmoid grid of plasma-arrange: the grid of the desktop shown on the
-//   screen of the popup. Without plasma-arrange, the size is free.
+// Created by ConfigOverlay, so it only exists in edit mode. A click on a widget
+// opens its popup (ConfigOverlay hides its own menu meanwhile), a second click
+// closes it. Widgets without a popup keep the usual menu.
 //
-// The plasmoid grid comes from GridDrag.js of plasma-arrange, a library script
-// shared by the whole shell (one QML engine), in which every desktop registers
-// itself. It is loaded from its installed package, next to this one, at run
-// time: when plasma-arrange is not installed, nothing breaks.
+// The popup snaps to the plasmoid grid of plasma-arrange, if installed: the
+// grid of the desktop shown on the popup's screen. That grid is read from
+// plasma-arrange's GridDrag.js, a script shared by the whole shell in which
+// every desktop registers itself.
 QtObject {
     id: popupResize
 
-    // A popup opened by a click is open (ConfigOverlay then hides its menu)
+    required property PopupPlacement placement
+
+    // True while a popup opened by a click is shown
     readonly property bool popupOpen: handles !== null
 
-    // The widget (PlasmoidItem) whose popup was opened, and the handles put in it
+    // The widget whose popup is open, and the handles shown in that popup
     property Item applet: null
     property Item handles: null
 
-    // Last popup closed, and when: a click on its widget closes it (the popup
-    // loses the focus) just before the click itself is seen, which must not
-    // open it again
+    // Clicking the widget of an open popup first closes the popup (it loses
+    // focus), and only then do we see the click: it must not reopen it.
     property Item closedApplet: null
     property double closedTime: 0
 
-    // Popup positions along the panel (main.qml)
-    required property PopupPlacement placement
-
-    // GridDrag.js of plasma-arrange: undefined before loading it, null when
-    // not installed
+    // GridDrag.js of plasma-arrange: undefined until loaded, null if missing
     property var gridDrag: undefined
 
     readonly property Component handlesComponent: Component {
@@ -49,22 +42,20 @@ QtObject {
         }
     }
 
-    Component.onDestruction: {
-        // Edit mode ended: the popup stays open, without handles
-        handles?.destroy();
-    }
+    // Leaving edit mode: the handles go away, the popup stays open
+    Component.onDestruction: handles?.destroy()
 
-    // Opens or closes the popup of the widget of an applet container of the
-    // panel. Returns false when the widget has no popup (shown in full in the
-    // panel): ConfigOverlay then shows its menu.
+    // Opens or closes the popup of a widget of the panel (an applet container).
+    // Returns false if the widget has no popup: ConfigOverlay then shows its
+    // menu instead.
     function toggle(container: Item): bool {
         const plasmoidItem = container?.applet;
         if (!plasmoidItem?.fullRepresentation || !plasmoidItem.compactRepresentationItem?.visible) {
             return false;
         }
-        // An empty popup (some widgets declare one only because Plasma wants one,
-        // e.g. Catwalk: "fullRepresentation: Item {}") is not opened. Its content
-        // is created first without opening it (Plasma keeps it then anyway).
+
+        // Some widgets have an empty popup, only because Plasma requires one
+        // (e.g. Catwalk). Create the content without opening it, to check.
         if (!plasmoidItem.fullRepresentationItem) {
             const preload = plasmoidItem.preloadFullRepresentation;
             plasmoidItem.preloadFullRepresentation = true;
@@ -78,8 +69,9 @@ QtObject {
             plasmoidItem.expanded = false;
             return true;
         }
-        if (plasmoidItem === closedApplet && Date.now() - closedTime < 300) {
-            return true; // (already closed by this click)
+        const justClosed = plasmoidItem === closedApplet && Date.now() - closedTime < 300;
+        if (justClosed) {
+            return true;
         }
 
         if (applet && applet !== plasmoidItem) {
@@ -87,26 +79,27 @@ QtObject {
         }
         applet = plasmoidItem;
         plasmoidItem.expanded = true;
-        // (the full representation may only be created now)
+        // The popup content may only be created now
         Qt.callLater(addHandles);
         return true;
     }
 
-    // A full representation with nothing to show: no children, no size
     function isEmpty(item: Item): bool {
-        return !item || (item.children.length === 0 && item.implicitWidth <= 0 && item.implicitHeight <= 0
+        return !item || (item.children.length === 0
+                         && item.implicitWidth <= 0 && item.implicitHeight <= 0
                          && !(item.Layout.preferredWidth > 0) && !(item.Layout.preferredHeight > 0));
     }
 
     function addHandles(): void {
         handles?.destroy();
         handles = null;
+
         const content = applet?.fullRepresentationItem;
-        // In the popup, the full representation fills its main item
         const popup = content?.Window.window;
-        if (!applet?.expanded || !popup || popup.objectName !== "popupWindow") {
+        if (!applet?.expanded || popup?.objectName !== "popupWindow") {
             return;
         }
+        // Next to the content, in the popup's main item, which they fill
         const item = handlesComponent.createObject(content.parent, { plasmoidItem: applet });
         item.closed.connect(() => popupClosed(item));
         handles = item;
@@ -123,8 +116,8 @@ QtObject {
         item.destroy();
     }
 
-    // Plasmoid grid cell of the desktop shown on a screen: { width, height },
-    // or null (plasma-arrange not installed, or a Folder View desktop)
+    // The plasmoid grid cell ({ width, height }) of the desktop shown on a
+    // screen, or null: no plasma-arrange, or a desktop without its grid.
     function plasmoidCellOn(screenName: string): var {
         if (gridDrag === undefined) {
             gridDrag = loadGridDrag();
@@ -138,6 +131,9 @@ QtObject {
         return null;
     }
 
+    // Imported with the same URL as the desktop does, to get the same shared
+    // instance. Loaded at run time so that a missing plasma-arrange breaks
+    // nothing.
     function loadGridDrag(): var {
         const url = Qt.resolvedUrl("../../../org.kde.desktopcontainment/contents/ui/GridDrag.js");
         try {
@@ -150,7 +146,7 @@ QtObject {
                     }
                 }`, popupResize, "PlasmaArrangeGrid");
         } catch (error) {
-            return null; // plasma-arrange is not installed
+            return null;
         }
     }
 }

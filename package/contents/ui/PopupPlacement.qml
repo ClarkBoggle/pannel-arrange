@@ -6,26 +6,26 @@ import QtQuick
 
 import org.kde.plasma.plasmoid
 
-// Popups placed by the user along the panel (always, not only in edit mode).
+// Keeps popups where the user moved them along the panel, and keeps their size.
+// Always active, not only in edit mode.
 //
-// Plasma places a popup centered on its "visual parent" (the widget in the
-// panel), against the panel, and places it again at each resize: it cannot be
-// moved directly. A popup placed by the user gets an invisible anchor instead,
-// in the panel window, centered where the popup must be: Plasma then puts it
-// there itself. Its position is the one of its start (left or top edge) from
-// the start of the panel window, saved by applet id in PopupOffsets.
+// Plasma always centers a popup on its "visual parent" (normally the widget)
+// and does it again whenever the popup is resized or shown, so a popup cannot
+// simply be moved. Instead, a moved popup gets an invisible anchor item in the
+// panel, centered where the popup should be, and the anchor becomes its visual
+// parent: Plasma then puts the popup there by itself.
 //
-// The anchor is set when the popup gets the full representation (often at its
-// first opening). Moving a popup is done by PopupHandles (edit mode), through
-// setOffset().
+// Positions are saved in the PopupOffsets setting, by applet id: the distance
+// in pixels from the start of the panel to the start (left or top edge) of the
+// popup. Moving is done by PopupHandles, in edit mode, through setOffset().
 Item {
     id: placement
 
-    // Items of the panel: { applet } (PlasmoidItem or placeholder)
+    // The items of the panel ({ applet })
     required property ListModel appletsModel
     required property bool horizontal
 
-    // Applet id → position, from the configuration
+    // Applet id → saved position
     readonly property var offsets: {
         try {
             return JSON.parse(Plasmoid.configuration.PopupOffsets || "{}");
@@ -38,51 +38,8 @@ Item {
     // Applet id → anchor item
     property var anchorItems: ({})
 
-    readonly property Component anchorComponent: Component {
-        Item {
-            id: anchorItem
-            // Id of the applet of the popup
-            required property int appletId
-            // Popup start from the start of the panel window
-            required property real offset
-            // Popup length along the panel asked while it is resized by the
-            // user, else undefined (the length of the popup). Set before the
-            // popup is resized: Plasma places the popup again when its size
-            // changes, the anchor must already be where the popup will be
-            // (else the popup is shown one frame centered on the old place,
-            // and shakes while resized)
-            property var askedLength: undefined
-            required property var popup
-            required property bool horizontal
-            // The widget: the anchor takes its size across the panel
-            required property Item widget
-
-            // (scene coordinates: parent is the window content item)
-            x: horizontal ? offset + (askedLength ?? popup.width) / 2 : widgetRect.x
-            y: horizontal ? widgetRect.y : offset + (askedLength ?? popup.height) / 2
-            width: horizontal ? 0 : widgetRect.width
-            height: horizontal ? widgetRect.height : 0
-
-            // The anchor follows the popup size, but Plasma may have placed the
-            // popup before (e.g. its size changing after its first placement,
-            // once its frame is known): placed again after each anchor move
-            onXChanged: Qt.callLater(placeAgain)
-            onYChanged: Qt.callLater(placeAgain)
-            function placeAgain(): void {
-                if (placement.anchorItems[appletId] === anchorItem && popup.visualParent === anchorItem) {
-                    placement.placeAgain(popup, anchorItem);
-                }
-            }
-
-            property rect widgetRect: Qt.rect(0, 0, 0, 0)
-            function updateWidgetRect(): void {
-                if (widget) {
-                    const position = widget.mapToItem(null, 0, 0);
-                    widgetRect = Qt.rect(position.x, position.y, widget.width, widget.height);
-                }
-            }
-        }
-    }
+    // Widgets, popup contents and popups already watched (see watch())
+    property var watchedItems: []
 
     Component.onCompleted: Qt.callLater(applyAll)
 
@@ -93,6 +50,54 @@ Item {
         }
     }
 
+    readonly property Component anchorComponent: Component {
+        Item {
+            id: anchor
+
+            required property int appletId
+            required property var popup
+            required property Item widget
+            required property bool horizontal
+            // Where the popup starts, from the start of the panel
+            required property real offset
+            // While the popup is being resized: the length it is about to get.
+            // Plasma places the popup again as soon as its size changes, so the
+            // anchor must already be in its new place by then; otherwise the
+            // popup shows for one frame centered on the old place and shakes.
+            property var askedLength: undefined
+
+            // The widget's rectangle, in the panel window
+            property rect widgetRect: Qt.rect(0, 0, 0, 0)
+
+            // Centered on the popup along the panel; across, as large as the
+            // widget, so that the popup stays against the panel.
+            // (the anchor is a child of the window's content item)
+            x: horizontal ? offset + (askedLength ?? popup.width) / 2 : widgetRect.x
+            y: horizontal ? widgetRect.y : offset + (askedLength ?? popup.height) / 2
+            width: horizontal ? 0 : widgetRect.width
+            height: horizontal ? widgetRect.height : 0
+
+            // Plasma may have placed the popup before the anchor followed its
+            // new size: place it again after each move of the anchor
+            onXChanged: Qt.callLater(placeAgainIfCurrent)
+            onYChanged: Qt.callLater(placeAgainIfCurrent)
+
+            function placeAgainIfCurrent(): void {
+                if (placement.anchorItems[appletId] === anchor && popup.visualParent === anchor) {
+                    placement.placeAgain(popup, anchor);
+                }
+            }
+
+            function updateWidgetRect(): void {
+                if (widget) {
+                    const position = widget.mapToItem(null, 0, 0);
+                    widgetRect = Qt.rect(position.x, position.y, widget.width, widget.height);
+                }
+            }
+        }
+    }
+
+    // The widgets of the panel that have a popup
     function plasmoidItems(): var {
         const items = [];
         for (let i = 0; i < appletsModel.count; i++) {
@@ -104,48 +109,50 @@ Item {
         return items;
     }
 
-    // The popup window of a widget, or null (no popup, or not created yet)
+    // The popup window of a widget, or null if it does not exist yet
     function popupOf(plasmoidItem: Item): var {
         const popup = plasmoidItem?.fullRepresentationItem?.Window.window;
         return popup?.objectName === "popupWindow" ? popup : null;
     }
 
-    // Saved position of the popup of a widget, or undefined (centered)
+    // The saved position of a widget's popup, or undefined if centered
     function offsetOf(plasmoidItem: Item): var {
         return offsets[plasmoidItem.Plasmoid.id];
     }
 
-    // Current position of a popup start from the start of the panel window
+    // Where a popup currently starts, from the start of the panel
     function currentOffset(popup: var): real {
         const panel = placement.Window.window;
         return horizontal ? popup.x - panel.x : popup.y - panel.y;
     }
 
-    // Length of the panel window along the panel
     function panelLength(): real {
         const panel = placement.Window.window;
-        return panel ? (horizontal ? panel.width : panel.height) : 0;
+        if (!panel) {
+            return 0;
+        }
+        return horizontal ? panel.width : panel.height;
     }
 
-    // Moves the popup of a widget (offset undefined: back to centered on its
-    // widget). Saved in the configuration only when save is true (at the end
-    // of a drag). length: the length along the panel the popup is about to be
-    // given, while it is resized (see askedLength).
+    // Moves the popup of a widget; offset undefined puts it back centered.
+    // Saved only if `save` is true (at the end of a drag). `length`: the size
+    // the popup is about to get, while it is resized (see askedLength).
     function setOffset(plasmoidItem: Item, offset: var, save: bool, length: var): void {
-        const id = plasmoidItem.Plasmoid.id;
-        if (save) {
-            const all = Object.assign({}, offsets);
-            if (offset === undefined) {
-                delete all[id];
-            } else {
-                all[id] = Math.round(offset);
-            }
-            Plasmoid.configuration.PopupOffsets = JSON.stringify(all); // (applyAll follows when changed)
-            if (offset !== undefined) {
-                apply(plasmoidItem, offset);
-            }
-        } else {
+        if (!save) {
             apply(plasmoidItem, offset, undefined, length);
+            return;
+        }
+        const all = Object.assign({}, offsets);
+        const id = plasmoidItem.Plasmoid.id;
+        if (offset === undefined) {
+            delete all[id];
+        } else {
+            all[id] = Math.round(offset);
+        }
+        // Calls applyAll() through onOffsetsChanged, if anything changed
+        Plasmoid.configuration.PopupOffsets = JSON.stringify(all);
+        if (offset !== undefined) {
+            apply(plasmoidItem, offset);
         }
     }
 
@@ -156,7 +163,7 @@ Item {
             watch(item);
             apply(item, offsetOf(item));
         }
-        // Anchors of removed widgets
+        // Anchors of widgets removed from the panel
         for (const id in anchorItems) {
             if (!ids.includes(id)) {
                 anchorItems[id].destroy();
@@ -165,25 +172,20 @@ Item {
         }
     }
 
-    // (knownPopup: the popup window when already known, see watch())
+    // `knownPopup`: the popup window, when the caller already knows it
     function apply(plasmoidItem: Item, offset: var, knownPopup: var, length: var): void {
         const id = plasmoidItem.Plasmoid.id;
         let anchor = anchorItems[id];
 
         if (offset === undefined) {
             if (anchor) {
-                const popup = anchor.popup;
-                delete anchorItems[id];
-                if (popup.visualParent === anchor) {
-                    popup.visualParent = plasmoidItem.compactRepresentationItem;
-                    popup.requestUpdate();
-                }
-                anchor.destroy();
+                removeAnchor(plasmoidItem, anchor);
             }
             return;
         }
 
-        // The popup is often created only at the first opening: applied then
+        // Most popups are only created when first opened: watch() applies
+        // the position then
         watch(plasmoidItem);
         const popup = knownPopup ?? popupOf(plasmoidItem);
         const content = placement.Window.contentItem;
@@ -191,49 +193,68 @@ Item {
             return;
         }
 
-        if (!anchor || anchor.popup !== popup) {
+        if (anchor?.popup !== popup) {
             anchor?.destroy();
-            anchor = anchorComponent.createObject(content, {
-                appletId: id,
-                offset: offset,
-                popup: popup,
-                horizontal: Qt.binding(() => placement.horizontal),
-                widget: plasmoidItem.compactRepresentationItem
-            });
-            anchorItems[id] = anchor;
-            // At each opening: the widget may have moved in the panel since
-            const createdAnchor = anchor;
-            popup.visibleChanged.connect(() => {
-                if (popup.visible && anchorItems[id] === createdAnchor) {
-                    placeAgain(popup, createdAnchor);
-                }
-            });
+            anchor = createAnchor(plasmoidItem, popup, offset, content);
         }
         anchor.askedLength = length;
         anchor.offset = offset;
         placeAgain(popup, anchor);
     }
 
-    // Widgets and full representations already watched
-    property var watchedItems: []
+    function createAnchor(plasmoidItem: Item, popup: var, offset: real, content: Item): Item {
+        const id = plasmoidItem.Plasmoid.id;
+        const anchor = anchorComponent.createObject(content, {
+            appletId: id,
+            offset: offset,
+            popup: popup,
+            horizontal: Qt.binding(() => placement.horizontal),
+            widget: plasmoidItem.compactRepresentationItem
+        });
+        anchorItems[id] = anchor;
 
-    // At its first opening, Plasma creates the full representation of a widget
-    // and puts it in the popup, and only then shows the popup: the position is
-    // applied when the full representation gets its window, before the popup
-    // is placed. Its size is kept from then on (keepSize()). All the widgets
-    // are watched.
+        // Placed again at each opening: the widget may have moved in the panel
+        popup.visibleChanged.connect(() => {
+            if (popup.visible && anchorItems[id] === anchor) {
+                placeAgain(popup, anchor);
+            }
+        });
+        return anchor;
+    }
+
+    // Back to centered on the widget
+    function removeAnchor(plasmoidItem: Item, anchor: Item): void {
+        const popup = anchor.popup;
+        delete anchorItems[plasmoidItem.Plasmoid.id];
+        if (popup.visualParent === anchor) {
+            popup.visualParent = plasmoidItem.compactRepresentationItem;
+            popup.requestUpdate();
+        }
+        anchor.destroy();
+    }
+
+    // Plasma places a popup again when its visual parent changes, at its next
+    // frame
+    function placeAgain(popup: var, anchor: Item): void {
+        anchor.updateWidgetRect();
+        popup.visualParent = null;
+        popup.visualParent = anchor;
+        popup.requestUpdate();
+    }
+
+    // Plasma creates a widget's popup content when the popup is first opened,
+    // puts it in the popup, and only then shows the popup. So the position is
+    // applied as soon as the content gets its window, before the popup is
+    // shown. Every widget is watched, for keepSize() too.
     function watch(plasmoidItem: Item): void {
-        watchedItems = watchedItems.filter(item => item); // (destroyed: null)
-        if (watchedItems.includes(plasmoidItem)) {
+        if (!startWatching(plasmoidItem)) {
             return;
         }
-        watchedItems.push(plasmoidItem);
         const watchContent = () => {
             const content = plasmoidItem.fullRepresentationItem;
-            if (content && !watchedItems.includes(content)) {
-                watchedItems.push(content);
-                // (the window given by the signal: the attached Window
-                // property of the item is not updated yet at that time)
+            if (content && startWatching(content)) {
+                // Use the window given by the signal: the item's attached
+                // Window property is not updated yet at that time
                 content.windowChanged.connect(window => {
                     if (window?.objectName !== "popupWindow") {
                         return;
@@ -254,20 +275,30 @@ Item {
         watchContent();
     }
 
-    // Plasma enlarges a popup to the minimum size of its content, and does not
-    // shrink it back when that minimum goes down again. Some widgets ask a
-    // larger minimum for a moment while they load (CPU monitor: 300 px high,
-    // then 212): the popup kept the larger size, saved when it closed, so the
-    // size set by the user was lost. The size before such a temporary minimum is
-    // given back once the minimum goes down to it again.
+    // Returns false if the item was already watched
+    function startWatching(item: var): bool {
+        // (destroyed items become null)
+        watchedItems = watchedItems.filter(watched => watched);
+        if (watchedItems.includes(item)) {
+            return false;
+        }
+        watchedItems.push(item);
+        return true;
+    }
+
+    // Plasma grows a popup to the minimum size of its content, but never
+    // shrinks it back when that minimum goes down again. Some widgets ask for
+    // a larger minimum for a moment while loading (the CPU monitor asks for
+    // 300 px high, then 212): their popup would keep that size, and Plasma
+    // would save it. Here the size from before is given back once the minimum
+    // allows it again.
     function keepSize(popup: var): void {
-        if (watchedItems.includes(popup)) {
+        if (!startWatching(popup)) {
             return;
         }
-        watchedItems.push(popup);
+        // (the minimum changes before Plasma grows the popup)
         let heldWidth = 0;
         let heldHeight = 0;
-        // (the minimum changes before Plasma enlarges the popup)
         popup.minimumWidthChanged.connect(() => {
             if (popup.minimumWidth > popup.width) {
                 heldWidth = heldWidth || popup.width;
@@ -290,14 +321,5 @@ Item {
                 }
             }
         });
-    }
-
-    // Placed again by Plasma on the anchor (it does when its visual parent
-    // changes, at its next frame)
-    function placeAgain(popup: var, anchor: Item): void {
-        anchor.updateWidgetRect();
-        popup.visualParent = null;
-        popup.visualParent = anchor;
-        popup.requestUpdate();
     }
 }
