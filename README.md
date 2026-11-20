@@ -251,8 +251,7 @@ Plasma then looks for the panel translations under the name
 
 ## Credits
 
-Written with [Claude Code](https://claude.com/claude-code), reviewed by
-biological eyes, approved by my dog 🐾
+Written with [Claude Code](https://claude.com/claude-code). He doin a work while my hooman gibs me scritches 🐶.
 
 ## License
 
