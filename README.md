@@ -19,6 +19,9 @@ one of its widgets: its popup opens, framed, with resize handles.
 - **Move**: drag anywhere else in the popup. It moves along the panel only,
   snapped to the cells counted from the start of the panel; it always stays
   against the panel. A double click puts it back centered on its widget.
+  The position is kept relative to the widget: in edit mode Plasma adds its
+  configuration button at the end of the panel and some widgets move, the
+  popup moves with them.
 - In the middle, the popup shows its **size** and its **position** along the
   panel, in cells (`16 × 9`, `x 38`; in pixels without plasma-arrange): give
   several popups the same position to open them at the same place.
@@ -136,7 +139,7 @@ until pannel-arrange is updated for that version.
 |---|---|
 | `package/contents/ui/main.qml` | 8 lines added, 1 line of Plasma changed, marked *Popup resizing*: see [Changes to main.qml](#changes-to-mainqml) |
 | `package/contents/ui/ConfigOverlay.qml` | 10 lines added, 1 line of Plasma changed, marked *Popup resizing*: see [Changes to ConfigOverlay.qml](#changes-to-configoverlayqml) |
-| `package/contents/config/main.xml` | The `PopupOffsets` setting: positions of the moved popups |
+| `package/contents/config/main.xml` | The `PopupWidgetOffsets` setting: positions of the moved popups |
 | `package/metadata.json` | 3 lines: see [Changes to metadata.json](#changes-to-metadatajson) |
 
 All the other files of `package/` are Plasma's, unchanged.

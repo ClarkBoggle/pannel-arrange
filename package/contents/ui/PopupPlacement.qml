@@ -15,9 +15,13 @@ import org.kde.plasma.plasmoid
 // panel, centered where the popup should be, and the anchor becomes its visual
 // parent: Plasma then puts the popup there by itself.
 //
-// Positions are saved in the PopupOffsets setting, by applet id: the distance
-// in pixels from the start of the panel to the start (left or top edge) of the
-// popup. Moving is done by PopupHandles, in edit mode, through setOffset().
+// Positions are saved in the PopupWidgetOffsets setting, by applet id: the
+// distance in pixels from the start (left or top edge) of the widget to the
+// start of its popup. Relative to the widget, because widgets move in the
+// panel: in edit mode, Plasma adds its configuration button at the end of the
+// panel, and the widgets after the one filling the panel move by its size.
+// Moving is done by PopupHandles, in edit mode, through setOffset(), which
+// like offsetOf() and currentOffset() counts from the start of the panel.
 Item {
     id: placement
 
@@ -25,10 +29,10 @@ Item {
     required property ListModel appletsModel
     required property bool horizontal
 
-    // Applet id → saved position
+    // Applet id → saved position, from the start of the widget
     readonly property var offsets: {
         try {
-            return JSON.parse(Plasmoid.configuration.PopupOffsets || "{}");
+            return JSON.parse(Plasmoid.configuration.PopupWidgetOffsets || "{}");
         } catch (error) {
             return {};
         }
@@ -43,6 +47,20 @@ Item {
 
     Component.onCompleted: Qt.callLater(applyAll)
 
+    // The widgets move when edit mode starts or ends (see above), once the
+    // panel is laid out again
+    Connections {
+        target: Plasmoid.containment.corona
+        function onEditModeChanged(): void {
+            relayoutTimer.restart();
+        }
+    }
+    Timer {
+        id: relayoutTimer
+        interval: 250
+        onTriggered: placement.applyAll()
+    }
+
     Connections {
         target: placement.appletsModel
         function onCountChanged(): void {
@@ -56,9 +74,10 @@ Item {
 
             required property int appletId
             required property var popup
+            required property Item plasmoidItem
             required property Item widget
             required property bool horizontal
-            // Where the popup starts, from the start of the panel
+            // Where the popup starts, from the start of the widget
             required property real offset
             // While the popup is being resized: the length it is about to get.
             // Plasma places the popup again as soon as its size changes, so the
@@ -68,12 +87,14 @@ Item {
 
             // The widget's rectangle, in the panel window
             property rect widgetRect: Qt.rect(0, 0, 0, 0)
+            // Where the widget starts, from the start of the panel
+            property real widgetStart: 0
 
             // Centered on the popup along the panel; across, as large as the
             // widget, so that the popup stays against the panel.
             // (the anchor is a child of the window's content item)
-            x: horizontal ? offset + (askedLength ?? popup.width) / 2 : widgetRect.x
-            y: horizontal ? widgetRect.y : offset + (askedLength ?? popup.height) / 2
+            x: horizontal ? widgetStart + offset + (askedLength ?? popup.width) / 2 : widgetRect.x
+            y: horizontal ? widgetRect.y : widgetStart + offset + (askedLength ?? popup.height) / 2
             width: horizontal ? 0 : widgetRect.width
             height: horizontal ? widgetRect.height : 0
 
@@ -93,6 +114,7 @@ Item {
                     const position = widget.mapToItem(null, 0, 0);
                     widgetRect = Qt.rect(position.x, position.y, widget.width, widget.height);
                 }
+                widgetStart = placement.widgetStart(plasmoidItem);
             }
         }
     }
@@ -115,9 +137,17 @@ Item {
         return popup?.objectName === "popupWindow" ? popup : null;
     }
 
-    // The saved position of a widget's popup, or undefined if centered
+    // Where a widget starts, from the start of the panel
+    function widgetStart(plasmoidItem: Item): real {
+        const position = plasmoidItem.mapToItem(null, 0, 0);
+        return horizontal ? position.x : position.y;
+    }
+
+    // The saved position of a widget's popup, from the start of the panel, or
+    // undefined if centered
     function offsetOf(plasmoidItem: Item): var {
-        return offsets[plasmoidItem.Plasmoid.id];
+        const offset = offsets[plasmoidItem.Plasmoid.id];
+        return offset === undefined ? undefined : widgetStart(plasmoidItem) + offset;
     }
 
     // Where a popup currently starts, from the start of the panel
@@ -138,21 +168,23 @@ Item {
     // Saved only if `save` is true (at the end of a drag). `length`: the size
     // the popup is about to get, while it is resized (see askedLength).
     function setOffset(plasmoidItem: Item, offset: var, save: bool, length: var): void {
+        // (from the start of the widget from here on)
+        const relative = offset === undefined ? undefined : offset - widgetStart(plasmoidItem);
         if (!save) {
-            apply(plasmoidItem, offset, undefined, length);
+            apply(plasmoidItem, relative, undefined, length);
             return;
         }
         const all = Object.assign({}, offsets);
         const id = plasmoidItem.Plasmoid.id;
-        if (offset === undefined) {
+        if (relative === undefined) {
             delete all[id];
         } else {
-            all[id] = Math.round(offset);
+            all[id] = Math.round(relative);
         }
         // Calls applyAll() through onOffsetsChanged, if anything changed
-        Plasmoid.configuration.PopupOffsets = JSON.stringify(all);
-        if (offset !== undefined) {
-            apply(plasmoidItem, offset);
+        Plasmoid.configuration.PopupWidgetOffsets = JSON.stringify(all);
+        if (relative !== undefined) {
+            apply(plasmoidItem, all[id]);
         }
     }
 
@@ -161,7 +193,7 @@ Item {
         for (const item of plasmoidItems()) {
             ids.push(String(item.Plasmoid.id));
             watch(item);
-            apply(item, offsetOf(item));
+            apply(item, offsets[item.Plasmoid.id]);
         }
         // Anchors of widgets removed from the panel
         for (const id in anchorItems) {
@@ -172,7 +204,8 @@ Item {
         }
     }
 
-    // `knownPopup`: the popup window, when the caller already knows it
+    // `offset`: from the start of the widget. `knownPopup`: the popup window,
+    // when the caller already knows it
     function apply(plasmoidItem: Item, offset: var, knownPopup: var, length: var): void {
         const id = plasmoidItem.Plasmoid.id;
         let anchor = anchorItems[id];
@@ -208,6 +241,7 @@ Item {
             appletId: id,
             offset: offset,
             popup: popup,
+            plasmoidItem: plasmoidItem,
             horizontal: Qt.binding(() => placement.horizontal),
             widget: plasmoidItem.compactRepresentationItem
         });
@@ -260,7 +294,7 @@ Item {
                         return;
                     }
                     placement.keepSize(window);
-                    const offset = placement.offsetOf(plasmoidItem);
+                    const offset = placement.offsets[plasmoidItem.Plasmoid.id];
                     if (offset !== undefined) {
                         placement.apply(plasmoidItem, offset, window);
                     }

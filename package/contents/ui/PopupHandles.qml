@@ -56,7 +56,7 @@ Item {
     // Position while dragging (saved on release), else undefined
     property var liveOffset: undefined
     // Position being dragged or saved; undefined when centered
-    readonly property var targetOffset: liveOffset ?? placement.offsets[plasmoidItem?.Plasmoid?.id]
+    readonly property var targetOffset: liveOffset ?? (plasmoidItem ? placement.offsetOf(plasmoidItem) : undefined)
     readonly property bool placed: targetOffset !== undefined
 
     // Drag state. The raw values follow the mouse, without snapping.
@@ -142,7 +142,9 @@ Item {
         const room = placement.panelLength() - (horizontalPanel ? width : height);
         if (saved !== undefined && room >= 0) {
             const offset = PopupMath.snapSize(saved, cellAlong, 0, room);
-            if (offset !== saved) {
+            // (saved as whole pixels from the widget, which may not start
+            // on a whole pixel)
+            if (Math.abs(offset - saved) >= 0.5) {
                 placement.setOffset(plasmoidItem, offset, true);
                 geometryAsked();
             }

@@ -9,8 +9,8 @@
     <entry name="AppletOrder" type="String">
       <label>encoded order of items</label>
     </entry>
-    <entry name="PopupOffsets" type="String">
-      <label>Popup positions set by the user, as JSON: applet id to the position of the popup start (left or top edge) from the start of the panel, in pixels. Popups not listed are centered on their widget.</label>
+    <entry name="PopupWidgetOffsets" type="String">
+      <label>Popup positions set by the user, as JSON: applet id to the position of the popup start (left or top edge) from the start of its widget, in pixels. Popups not listed are centered on their widget.</label>
     </entry>
   </group>
 
